@@ -1,0 +1,128 @@
+# invoice-master 配置
+#
+# 优先级：内置默认值 < 本文件 < 环境变量
+# 敏感信息（密码/密钥）建议用环境变量注入，不要写在这里：
+#   INVOICE_MASTER_MAILBOX_PASSWORD
+
+mailbox:
+  # IMAP 服务器
+  #   QQ 邮箱: imap.qq.com
+  #   163 邮箱: imap.163.com
+  host: ""
+  port: 993
+  username: ""
+  # 授权码，不是登录密码。留空则读环境变量。
+  password: ""
+  use_ssl: true
+  # 只读访问，不改动任何邮件
+  read_only: true
+  # 回溯天数。部分邮箱默认只保留近30 天邮件，建议 >= 180
+  days_back: 180
+  max_body_bytes: 262144
+  timeout: 30
+
+filter:
+  # 发件域名白名单（命中即通过，不再往下判）。留空 = 不启用
+  domain_whitelist: []
+  # 发件人地址精确白名单
+  sender_whitelist: []
+  subject_keywords:
+    - 发票
+    - 电子发票
+    - 行程单
+    - 订单
+    - 账单
+    - 水单
+    - invoice
+    - receipt
+    - itinerary
+    - booking
+  body_keywords:
+    - 发票
+    - 电子发票
+    - 增值税
+    - 行程单
+    - 报销
+    - invoice
+    - tax
+  # 排除词优先级最高
+  exclude_subject_keywords:
+    - 验证码
+    - 登录
+    - 密码
+    - 安全验证
+    - 广告
+    - 推广
+    - 优惠
+  accepted_extensions:
+    - .pdf
+    - .ofd
+    - .xml
+  # ZIP 附件递归解包的最大深度
+  max_archive_depth: 2
+  min_image_size_px: 32
+
+extraction:
+  local_enabled: true
+  # 最多解析前 N 页，防止超大 PDF 卡死
+  max_pdf_pages: 20
+  # 低于该置信度标记为需人工复核
+  confidence_threshold: 0.6
+  # 提取失败时回退到文件修改时间作为日期
+  fallback_to_mtime: true
+
+llm:
+  # 远程视觉兜底，默认关闭。扫描件优先走 agent 视觉识别
+  # （agent-prepare / agent-apply），不需要这里的任何配置。
+  # 启用远程兜底意味着发票图片会发送到第三方服务，请自行评估。
+  enabled: false
+
+  # 连续失败多少次后熔断。401/402/403 会立即熔断不重试——
+  # 认证和额度问题重试无意义，只会让几百张发票全跑一遍失败。
+  breaker_threshold: 3
+
+  # 单次运行最多调用次数，防止意外烧钱
+  max_calls_per_run: 200
+
+  # 传给模型的图片最长边（像素）。1600 足够识别票面文字，
+  # 调大只会增加 token 消耗。
+  max_image_px: 1600
+
+archive:
+  root: ~/Desktop/发票整理
+  group_by_type: true
+  # 目标公司名（填简称即可，如 "诺华"）；不匹配的发票隔离到「非目标公司发票」
+  company_filter: ""
+  manual_review_folder: 待人工复核
+  non_target_folder: 非目标公司发票
+  rename_enabled: true
+  # 可用占位符见 README 或 invoice_master/reporter.py
+  rename_template: "{date}-{type}-{amount}元"
+
+merge:
+  # 合并排版默认值；可被 --layout 与命令行单项参数覆盖
+  orientation: landscape
+  rows: 2
+  cols: 2
+  rotate: 0
+  page: A4
+  margin_top: 10
+  margin_bottom: 10
+  margin_left: 10
+  margin_right: 10
+  # vector = 矢量嵌入（清晰、体积小）；raster = 转图（兼容复杂图层）
+  mode: vector
+  # 每批处理文件数，避免单文档过大导致内存耗尽
+  batch_size: 50
+  gap: 5
+  draw_dividers: true
+  show_crop_marks: false
+  crop_mark_left: 0
+  crop_mark_right: 0
+
+report:
+  filename: summary_report.xlsx
+  amount_precision: 2
+  highlight_duplicates: true
+  # 重复发票号码的标记色（浅黄）
+  duplicate_fill: FFF2CC

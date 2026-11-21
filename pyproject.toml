@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invoice-master"
+version = "0.1.0"
+description = "电子发票整理与报销准备工具：从邮箱收集、字段识别、按类型归档、合并打印、生成报销汇总表"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "invoice-master contributors" }]
+keywords = ["发票", "invoice", "报销", "报销单", "IMAP", "PDF", "OCR"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: Chinese (Simplified)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Accounting",
+]
+
+# 核心依赖刻意保持精简—— 不引入 pydantic 等重框架，
+# 让使用者 git clone 后pip install 就能跑。
+dependencies = [
+    "pymupdf>=1.24",   # PDF 解析/合并
+    "openpyxl>=3.1",   # Excel 报表
+    "pyyaml>=6.0",     # YAML 配置（可选，JSON 配置不需要）
+]
+
+[project.optional-dependencies]
+llm = ["pillow>=10.0"]          # LLM 兜底的图片预处理
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.1"]
+# InvoiceFlowAI 非 GUI 功能：邮箱抓取 / 链接恢复 / AI 识别 / 审计
+# GUI 依赖（pywebview / pythonnet）已剥离，不含在内
+invoiceflow = [
+    "requests>=2.32",
+    "pillow>=10.0",
+    "beautifulsoup4>=4.12",
+    "pyzbar>=0.1.9",
+    "playwright>=1.40",
+    "urllib3>=2.0",
+    "keyring>=24.0",
+]
+# 票易合非 GUI 功能：PDF 合并排版 / 票种提取 / FastMCP Server
+# GUI 依赖（PySide6）已剥离，不含在内；pymupdf/openpyxl 已在主依赖，pillow 见 llm 组
+piaoyihe = [
+    "pillow>=10.0",
+    "mcp>=1.6.0",
+    "starlette>=0.36",
+    "uvicorn>=0.27",
+]
+all = [
+    "pillow>=10.0", "pytest>=7.0", "ruff>=0.1",
+    "requests>=2.32", "beautifulsoup4>=4.12", "pyzbar>=0.1.9",
+    "playwright>=1.40", "urllib3>=2.0", "keyring>=24.0",
+    "mcp>=1.6.0", "starlette>=0.36", "uvicorn>=0.27",
+]
+
+[project.scripts]
+invoice-master = "invoice_master.cli:main"
+# 兼容改名前的命令；新脚本与旧脚本指向同一入口。
+invoice-toolkit = "invoice_master.cli:main"
+
+[project.urls]
+Homepage = "https://cnb.cool/52hz.ltd/Skills/invoice-master"
+Repository = "https://cnb.cool/52hz.ltd/Skills/invoice-master"
+Issues = "https://cnb.cool/52hz.ltd/Skills/invoice-master/issues"
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+include = ["invoice_master*"]
+
+[tool.setuptools.package-data]
+invoice_master = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 90
+target-version = "py39"
+# 参考仓库（开发期检出，仅用于对照实现，不参与本项目检查）
+extend-exclude = ["_refs", ".workbuddy"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",   # 行宽由 formatter 管
+    "B008",   # 函数默认值调用（argparse 常用）
+    "W293",   # docstring 后的空行属风格偏好，不强制
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

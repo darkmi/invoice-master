@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 测试与缓存
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# 配置（可能含邮箱凭据）
+invoice_master.yaml
+invoice_master.yml
+invoice_toolkit.yaml
+invoice_toolkit.yml
+.env
+
+# 运行产物
+*.xlsx
+合并*.pdf
+报销*.pdf
+发票整理/
+!tests/samples/*.pdf
+
+# 输出目录（含下载的个人发票 PDF，隐私文件不入库）
+_out/
+
+# WorkBuddy 工作区数据（会话记忆）
+.workbuddy/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# 参考仓库（开发期临时检出，不应进版本库）
+_refs/
