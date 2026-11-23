@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -26,7 +27,13 @@ from invoice_master.cli import (  # noqa: E402
     collect_pdfs,
     main,
 )
-from invoice_master.config import Config, load_config, redact, save_config  # noqa: E402
+from invoice_master.config import (  # noqa: E402
+    DEFAULT_CONFIG,
+    Config,
+    load_config,
+    redact,
+    save_config,
+)
 
 SAMPLES = Path(__file__).parent / "samples"
 
@@ -112,6 +119,73 @@ class TestDefaultBehavior:
         # host/username 应留空
         assert 'host: ""' in text
         assert 'password: ""' in text
+
+
+# ---------------------------------------------------------------------------
+# 示例配置（与代码默认值的一致性）
+# ---------------------------------------------------------------------------
+
+
+EXAMPLE_CONFIG = Path(__file__).resolve().parent.parent / "invoice_master.example.yaml"
+
+
+def _flatten(prefix: str, obj, out: dict) -> None:
+    """把嵌套配置摊平成点路径，便于逐字段比较。"""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            _flatten(f"{prefix}.{key}" if prefix else key, value, out)
+    else:
+        out[prefix] = obj
+
+
+def _example_flat() -> dict:
+    if not EXAMPLE_CONFIG.exists():
+        pytest.skip("示例配置不存在")
+    data = yaml.safe_load(EXAMPLE_CONFIG.read_text(encoding="utf-8")) or {}
+    flat: dict = {}
+    _flatten("", data, flat)
+    return flat
+
+
+class TestExampleConfig:
+    def test_every_field_matches_defaults(self):
+        """示例里出现的每个字段都必须等于 DEFAULT_CONFIG。
+
+        示例不是默认值副本：一旦某字段值漂移，用户复制后会静默覆盖
+        代码默认行为。这条测试把漂移挡在 CI 之外。
+        """
+        flat = _example_flat()
+        defaults: dict = {}
+        _flatten("", DEFAULT_CONFIG, defaults)
+
+        unknown = sorted(set(flat) - set(defaults))
+        assert not unknown, f"示例配置含 DEFAULT_CONFIG 中不存在的字段: {unknown}"
+
+        drifted = {
+            key: (value, defaults[key])
+            for key, value in flat.items()
+            if value != defaults[key]
+        }
+        assert not drifted, (
+            "示例配置与代码默认值漂移（示例值, 默认值）: "
+            f"{drifted}；全量模板请用 config --init 生成"
+        )
+
+    def test_no_non_empty_list_overrides(self):
+        """示例不得携带非空列表 —— 列表在配置合并中是整体替换。
+
+        默认值里的关键词 / 扩展名等列表若被抄进示例，必然随代码升级
+        而漂移；用户复制后会丢掉未列出的项。
+        """
+        flat = _example_flat()
+        offenders = {
+            key: value
+            for key, value in flat.items()
+            if isinstance(value, list) and value
+        }
+        assert not offenders, (
+            f"示例配置不应包含非空列表（会整体替换默认值）: {offenders}"
+        )
 
 
 # ---------------------------------------------------------------------------

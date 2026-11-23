@@ -260,6 +260,9 @@ invoice-master verify ./归档/ --truth-manifest truth.json      # 批次准入
 invoice-master config --init invoice_master.yaml
 ```
 
+完整默认值见 `scripts/invoice_master/config.py` 的 `DEFAULT_CONFIG`；
+`invoice_master.example.yaml` 只列常改字段，复制它不会覆盖掉其余默认值。
+
 ### 配置优先级
 
 ```
@@ -297,7 +300,8 @@ mailbox:
 
 filter:
   domain_whitelist: []     # 发件域名白名单，命中即通过筛选
-  subject_keywords: ["发票", "行程单", "invoice"]
+  # 关键词等列表是「整体替换」而非追加：只写几个词会丢掉其余默认值。
+  # 需要自定义时请写全量，或直接用 config.py DEFAULT_CONFIG 的默认值。
 
 extraction:
   local_enabled: true      # 本地正则引擎

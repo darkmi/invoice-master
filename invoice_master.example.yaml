@@ -1,128 +1,57 @@
-# invoice-master 配置
+# invoice-master 最小配置示例
 #
-# 优先级：内置默认值 < 本文件 < 环境变量
-# 敏感信息（密码/密钥）建议用环境变量注入，不要写在这里：
-#   INVOICE_MASTER_MAILBOX_PASSWORD
+# 唯一真相源：scripts/invoice_master/config.py 里的 DEFAULT_CONFIG。
+# 本文件只列「用户通常需要改的字段」，不复制默认值。原因：
+#   1. 配置文件里的列表是「整体替换」而非追加，写半份列表会静默丢掉其余项；
+#   2. 复制一份全量默认值必然随代码升级而漂移（历史上已发生过）。
+# 因此这里出现的每个字段值都必须等于默认值 —— 由 tests/test_cli.py
+# 的 TestExampleConfig 在 CI 中强制校验。
+#
+# 需要「全量配置模板」时用：invoice-master config --init invoice_master.yaml
+# 注意：--init 会把当前环境变量里的授权码明文写进文件，执行前先 unset：
+#   INVOICE_MASTER_MAILBOX_PASSWORD / INVOICE_MASTER_LLM_API_KEY
+#
+# 优先级：内置默认值 < 本文件 < 环境变量 INVOICE_MASTER_*
 
 mailbox:
-  # IMAP 服务器
-  #   QQ 邮箱: imap.qq.com
-  #   163 邮箱: imap.163.com
+  # IMAP 服务器；常见值：imap.qq.com / imap.163.com
   host: ""
-  port: 993
   username: ""
-  # 授权码，不是登录密码。留空则读环境变量。
+  # 授权码（不是登录密码）。务必留空，用环境变量注入：
+  #   INVOICE_MASTER_MAILBOX_PASSWORD
   password: ""
-  use_ssl: true
-  # 只读访问，不改动任何邮件
-  read_only: true
-  # 回溯天数。部分邮箱默认只保留近30 天邮件，建议 >= 180
+  # 回溯天数。部分邮箱默认只让 IMAP 看近 30 天，
+  # 需要追溯更久请在邮箱设置里开启「收取全部邮件」。
   days_back: 180
-  max_body_bytes: 262144
-  timeout: 30
+  # 只读访问，绝不标记已读 / 移动 / 删除邮件。
+  read_only: true
 
 filter:
-  # 发件域名白名单（命中即通过，不再往下判）。留空 = 不启用
+  # 发件域名 / 发件人精确白名单，命中即通过筛选。留空 = 不启用。
+  # 例：domain_whitelist: ["jtw.beijing.gov.cn"]
   domain_whitelist: []
-  # 发件人地址精确白名单
   sender_whitelist: []
-  subject_keywords:
-    - 发票
-    - 电子发票
-    - 行程单
-    - 订单
-    - 账单
-    - 水单
-    - invoice
-    - receipt
-    - itinerary
-    - booking
-  body_keywords:
-    - 发票
-    - 电子发票
-    - 增值税
-    - 行程单
-    - 报销
-    - invoice
-    - tax
-  # 排除词优先级最高
-  exclude_subject_keywords:
-    - 验证码
-    - 登录
-    - 密码
-    - 安全验证
-    - 广告
-    - 推广
-    - 优惠
-  accepted_extensions:
-    - .pdf
-    - .ofd
-    - .xml
-  # ZIP 附件递归解包的最大深度
-  max_archive_depth: 2
-  min_image_size_px: 32
-
-extraction:
-  local_enabled: true
-  # 最多解析前 N 页，防止超大 PDF 卡死
-  max_pdf_pages: 20
-  # 低于该置信度标记为需人工复核
-  confidence_threshold: 0.6
-  # 提取失败时回退到文件修改时间作为日期
-  fallback_to_mtime: true
-
-llm:
-  # 远程视觉兜底，默认关闭。扫描件优先走 agent 视觉识别
-  # （agent-prepare / agent-apply），不需要这里的任何配置。
-  # 启用远程兜底意味着发票图片会发送到第三方服务，请自行评估。
-  enabled: false
-
-  # 连续失败多少次后熔断。401/402/403 会立即熔断不重试——
-  # 认证和额度问题重试无意义，只会让几百张发票全跑一遍失败。
-  breaker_threshold: 3
-
-  # 单次运行最多调用次数，防止意外烧钱
-  max_calls_per_run: 200
-
-  # 传给模型的图片最长边（像素）。1600 足够识别票面文字，
-  # 调大只会增加 token 消耗。
-  max_image_px: 1600
+  # 主题 / 正文 / 排除关键词不在此列出，见 DEFAULT_CONFIG。
+  # 如确需自定义，必须写「全量列表」——只写新增项会整体替换掉默认值。
 
 archive:
+  # 归档根目录
   root: ~/Desktop/发票整理
-  group_by_type: true
-  # 目标公司名（填简称即可，如 "诺华"）；不匹配的发票隔离到「非目标公司发票」
+  # 目标公司名（填简称即可）；不匹配的发票隔离到「非目标公司发票」
   company_filter: ""
-  manual_review_folder: 待人工复核
-  non_target_folder: 非目标公司发票
-  rename_enabled: true
-  # 可用占位符见 README 或 invoice_master/reporter.py
-  rename_template: "{date}-{type}-{amount}元"
 
-merge:
-  # 合并排版默认值；可被 --layout 与命令行单项参数覆盖
-  orientation: landscape
-  rows: 2
-  cols: 2
-  rotate: 0
-  page: A4
-  margin_top: 10
-  margin_bottom: 10
-  margin_left: 10
-  margin_right: 10
-  # vector = 矢量嵌入（清晰、体积小）；raster = 转图（兼容复杂图层）
-  mode: vector
-  # 每批处理文件数，避免单文档过大导致内存耗尽
-  batch_size: 50
-  gap: 5
-  draw_dividers: true
-  show_crop_marks: false
-  crop_mark_left: 0
-  crop_mark_right: 0
-
-report:
-  filename: summary_report.xlsx
-  amount_precision: 2
-  highlight_duplicates: true
-  # 重复发票号码的标记色（浅黄）
-  duplicate_fill: FFF2CC
+# 其余可调字段（不在此重复，见 DEFAULT_CONFIG）：
+#   mailbox       port / use_ssl / max_body_bytes / timeout
+#   filter        subject_keywords / body_keywords / exclude_subject_keywords /
+#                 accepted_extensions / max_archive_depth / max_attachment_mb /
+#                 min_image_size_px
+#   extraction    local_enabled / max_pdf_pages / confidence_threshold /
+#                 fallback_to_mtime
+#   llm           enabled / base_url / model / api_key / timeout / max_retries /
+#                 breaker_threshold / max_calls_per_run / max_image_px
+#   archive       group_by_type / manual_review_folder / non_target_folder /
+#                 rename_enabled / rename_template / company_match_mode
+#   merge         orientation / rows / cols / rotate / page / margin_* / mode /
+#                 batch_size / gap / draw_dividers / show_crop_marks / crop_mark_*
+#   report        filename / amount_precision / highlight_duplicates /
+#                 duplicate_fill
